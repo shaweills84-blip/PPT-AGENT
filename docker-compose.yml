@@ -1,0 +1,44 @@
+version: "3.9"
+
+services:
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql   # 数据持久化，重启不丢数据
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    env_file: .env
+    volumes:
+      - ./backend:/app              # 开发时热重载
+      - uploads:/app/uploads
+      - outputs:/app/outputs
+      - chroma:/app/chroma_db
+    depends_on:
+      mysql:
+        condition: service_healthy  # 等MySQL启动好再启动后端
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:
+  uploads:
+  outputs:
+  chroma:

@@ -1,0 +1,29 @@
+# Web 框架
+fastapi
+uvicorn[standard]
+python-multipart
+
+# 数据库
+sqlalchemy
+pymysql
+pydantic[email]
+pydantic-settings
+
+# AI / LLM（多模型支持）
+openai
+anthropic
+
+# RAG
+langchain
+langchain-community
+langchain-openai
+chromadb
+pypdf
+python-docx
+
+# PPT 生成
+python-pptx
+pyyaml
+
+# 工具
+httpx

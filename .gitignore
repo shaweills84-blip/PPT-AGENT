@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+backend/venv/
+
+# Node
+node_modules/
+frontend/node_modules/
+
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Claude Code
+.claude/
+CLAUDE.md
+ARCHITECTURE.md
+ROADMAP.md
+VERSION_ROADMAP.md
+PPT_Agent_项目拆解文档.docx
+
+# 环境变量
+.env
+
+# 运行时数据
+backend/uploads/
+backend/outputs/
+backend/chroma_db/
+backend/chroma_data/
+*.log
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 临时文件
+generate_doc.py
+generate_pdf.py
+frontend/chroma_db/
+frontend/outputs/
+frontend/uploads/
