@@ -46,4 +46,4 @@ app.include_router(chat.router, prefix="/api")
 
 @app.get("/")
 def health_check():
-    return {"status": "ok", "service": "PPT Agent"}
+    return {"status": "ok", "service": "PPT Agent", "version": "FIXED-v2"}  # 验证代码版本

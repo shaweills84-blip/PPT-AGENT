@@ -153,21 +153,31 @@ async def send_message(
     if ctx.get("user_id") != user.id:
         raise HTTPException(403, "无权访问此会话")
 
+    # 保存 add_user_message 之前的 stage（add_user_message 会重置为 clarifying）
+    prev_stage = ctx.get("stage", "clarifying")
+
     mgr.add_user_message(session_id, req.content)
 
     client = get_llm_client()
     system_prompt = mgr.build_chat_system_prompt(session_id)
     messages = mgr.build_agent_messages(session_id)
 
-    current_stage = ctx.get("stage", "clarifying")
-    if current_stage == "done" and ctx.get("ppt_draft"):
+    current_stage = prev_stage
+    if current_stage in ("done", "generating") and ctx.get("ppt_draft"):
         ppt_summary = json.dumps(ctx["ppt_draft"], ensure_ascii=False)
-        system_prompt += f"\n\n## 当前 PPT 已生成\n以下 PPT 已被用户确认生成，用户可能想修改它：\n{ppt_summary[:800]}\n\n如果用户要求修改，请理解修改意图后提出具体的修改方案。"
+        system_prompt += (
+            f"\n\n## 当前 PPT 已生成\n"
+            f"以下 PPT 已被用户确认生成，用户可能想修改它：\n{ppt_summary[:800]}\n\n"
+            f"如果用户要求修改，请理解修改意图后提出具体的修改方案。"
+        )
 
-    tools = _get_tools_for_chat(ctx.get("document_id", 0), ctx.get("rag_strategy", "basic"))
+    # clarifying 阶段不给工具：agent 专心跟用户聊天澄清需求
+    # confirmed 阶段给工具：agent 检索文档后给出具体 PPT 结构建议
+    # done/generating 阶段不给工具：基于已有 PPT 结构回复修改意见
+    give_tools = current_stage in ("confirmed",)
+    tools = _get_tools_for_chat(ctx.get("document_id", 0), ctx.get("rag_strategy", "basic")) if give_tools else []
 
-    # Agent 推理。需要足够轮次：检索 2-3 轮 + 文本回复 1 轮
-    max_rounds = 6
+    max_rounds = 4 if not tools else 8
     for _ in range(max_rounds):
         response = client.chat(
             messages=messages,
@@ -180,13 +190,13 @@ async def send_message(
 
         if not tool_calls or response["stop_reason"] != "tool_use":
             ppt_preview = try_extract_ppt_structure(content)
-            stage = "clarifying"
 
             if ppt_preview and ppt_preview.get("slides"):
                 stage = "confirmed"
                 mgr.add_agent_message(session_id, content, ppt_draft=ppt_preview, stage=stage)
             else:
-                stage = ctx.get("stage", "clarifying")
+                # 保持之前的 stage（done 阶段修改后还是 done，confirmed 还是 confirmed）
+                stage = prev_stage if prev_stage in ("done", "confirmed") else ctx.get("stage", "clarifying")
                 mgr.add_agent_message(session_id, content, stage=stage)
 
             return MessageResponse(
@@ -297,8 +307,16 @@ async def generate_from_chat(
         mgr.set_task_id(session_id, task.id)
 
     except Exception as e:
+        import traceback, datetime
+        tb = traceback.format_exc()
+        try:
+            with open("error.log", "a") as f:
+                f.write(f"\n[{datetime.datetime.now().isoformat()}] PPTX GENERATE ERROR\n{tb}\n")
+        except Exception:
+            pass
         update_task_status(db, task.id, "failed", error_msg=str(e))
-        raise HTTPException(500, f"生成失败: {e}")
+        last_line = tb.strip().split('\n')[-1] if tb else str(e)
+        raise HTTPException(500, f"生成失败: {type(e).__name__}: {e} | last: {last_line}")
 
     return GenerateResponse(
         session_id=session_id,

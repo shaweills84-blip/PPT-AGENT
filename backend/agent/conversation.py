@@ -36,7 +36,7 @@ class ConversationManager:
             "user_preferences": user_preferences,
             "messages": [],
             "clarified": {},
-            "pending": ["主题", "侧重点", "结构"],
+            "pending": ["主题", "侧重点", "页数风格"],
             "retrieval_cache": {},
             "ppt_draft": None,
             "stage": self.STAGE_CLARIFYING,
@@ -190,13 +190,13 @@ class ConversationManager:
 还需确认的信息：{pending_str}
 对话阶段：{state['stage']}
 文档ID：{ctx.get('document_id')}
-检索策略：{ctx.get('rag_strategy', 'basic')}
 
 根据以上状态决定你的下一步行动：
 - 如果还有待确认信息（pending 非空），继续追问用户，每次1-2个问题
 - 如果信息已充分，简洁说明你打算按什么结构组织PPT（3-5条大纲），请用户确认
 - 如果用户已确认结构，告诉用户「可以点击生成按钮开始制作」
-- 注意：你不需要自己生成完整PPT，生成工作由后台的 Multi-Agent 协作系统完成
+- 重要：你在这个阶段只需要和用户对话，不需要检索文档。检索和PPT生成由后台系统自动完成。
+- 每轮回复2-4句话，不要过长。
 """
         return prompt
 
@@ -300,19 +300,28 @@ class ConversationManager:
             db.close()
 
     def _update_clarification_state(self, ctx: dict, user_message: str):
-        """从用户消息中快速提取意图要素，Agent 在 prompt 里也会做更准的判断"""
+        """从用户消息中快速提取意图要素"""
         msg_lower = user_message.lower()
 
         pending = ctx.get("pending", [])
-        if "主题" in pending:
-            if len(user_message) > 10:
-                ctx["clarified"]["topic_guess"] = user_message[:100]
-                if "主题" in pending:
-                    pending.remove("主题")
+        if "主题" in pending and len(user_message) > 5:
+            ctx["clarified"]["topic"] = user_message[:100]
+            pending.remove("主题")
 
         if "侧重点" in pending:
-            if any(kw in msg_lower for kw in ["分析", "对比", "报告", "总结", "介绍", "复盘"]):
+            if any(kw in msg_lower for kw in [
+                "分析", "对比", "报告", "总结", "介绍", "科普", "复盘",
+                "侧重", "重点", "方面", "都要", "每个",
+            ]):
+                ctx["clarified"]["focus"] = user_message[:100]
                 pending.remove("侧重点")
+
+        if "页数风格" in pending:
+            if any(kw in msg_lower for kw in [
+                "页", "风格", "详细", "简洁", "专业", "通俗", "页数",
+            ]):
+                ctx["clarified"]["style"] = user_message[:100]
+                pending.remove("页数风格")
 
         ctx["pending"] = pending
         if not pending:

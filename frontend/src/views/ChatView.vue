@@ -83,38 +83,39 @@
 
       <!-- 底部操作栏 -->
       <div class="bottom-bar" v-if="currentSessionId && !showDocPicker">
-        <!-- Stage: generating -->
-        <div class="stage-bar generating" v-if="currentStage === 'generating'">
-          <div class="spinner"></div>
-          <span>Multi-Agent 协作生成中，请稍候...</span>
+        <!-- Stage: generating → 只显示加载 -->
+        <div v-if="currentStage === 'generating'">
+          <div class="stage-bar generating">
+            <div class="spinner"></div>
+            <span>Multi-Agent 协作生成中，请稍候...</span>
+          </div>
         </div>
 
-        <!-- Stage: confirmed → 显示生成按钮 -->
-        <div class="stage-bar confirmed" v-else-if="currentStage === 'confirmed'">
-          <span>结构已确认，可以生成 PPT 了</span>
-          <button class="btn btn-primary" @click="triggerGenerate" :disabled="generating">
-            {{ generating ? '生成中...' : '确认生成 PPT' }}
-          </button>
-        </div>
+        <!-- 其他 stage: 操作栏 + 输入框同时显示 -->
+        <div v-else>
+          <div class="stage-bar confirmed" v-if="currentStage === 'confirmed'">
+            <span>结构已确认，可继续修改或生成 PPT</span>
+            <button class="btn btn-primary" @click="triggerGenerate" :disabled="generating">
+              {{ generating ? '生成中...' : '确认生成 PPT' }}
+            </button>
+          </div>
+          <div class="stage-bar done" v-if="currentStage === 'done'">
+            <span>PPT 已生成，可继续对话修改</span>
+            <button class="btn btn-primary" @click="downloadPPTX">下载 PPTX</button>
+          </div>
 
-        <!-- Stage: done → 下载 -->
-        <div class="stage-bar done" v-else-if="currentStage === 'done'">
-          <span>PPT 已生成</span>
-          <button class="btn btn-primary" @click="downloadPPTX">下载 PPTX</button>
-        </div>
-
-        <!-- Stage: clarifying → 输入框 -->
-        <div class="input-row" v-else>
-          <input
-            v-model="inputText"
-            class="form-input chat-input"
-            placeholder="输入你的需求，比如：帮我做一份竞品分析PPT..."
-            @keyup.enter="sendMsg"
-            :disabled="waiting"
-          />
-          <button class="btn btn-primary" @click="sendMsg" :disabled="!inputText.trim() || waiting">
-            发送
-          </button>
+          <div class="input-row">
+            <input
+              v-model="inputText"
+              class="form-input chat-input"
+              placeholder="输入你的需求..."
+              @keyup.enter="sendMsg"
+              :disabled="waiting"
+            />
+            <button class="btn btn-primary" @click="sendMsg" :disabled="!inputText.trim() || waiting">
+              发送
+            </button>
+          </div>
         </div>
       </div>
 

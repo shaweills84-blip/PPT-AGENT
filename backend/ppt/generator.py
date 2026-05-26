@@ -20,12 +20,33 @@ C = {
 }
 
 
+def _normalize_slide(data: dict) -> dict:
+    """把 LLM 输出的嵌套 content 对象提升到顶层，兼容各种 key 名变体"""
+    normalized = dict(data)
+    nested = data.get("content")
+    if isinstance(nested, dict):
+        for k, v in nested.items():
+            if k not in normalized or normalized[k] in (None, "", []):
+                normalized[k] = v
+        # 别名映射：嵌套的 key 映射到标准 key
+        for llm_key, std_key in (
+            ("bullet", "bullets"), ("key_finding", "key_points"),
+            ("keypoint", "key_points"), ("keypoints", "key_points"),
+            ("text", "description"), ("desc", "description"),
+            ("findings", "key_points"), ("points", "bullets"),
+        ):
+            if llm_key in nested and std_key not in normalized:
+                normalized[std_key] = nested[llm_key]
+    return normalized
+
+
 def generate_from_dict(data: dict, output_path: str) -> str:
     prs = Presentation()
     prs.slide_width = Inches(13.333)
     prs.slide_height = Inches(7.5)
 
     for slide_data in data.get("slides", []):
+        slide_data = _normalize_slide(slide_data)
         if _is_empty_slide(slide_data):
             continue
         layout = slide_data.get("layout", slide_data.get("type", "content"))

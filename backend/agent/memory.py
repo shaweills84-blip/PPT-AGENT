@@ -84,7 +84,10 @@ class LongTermMemory:
         preference_text = self._serialize_preference(prompt, slide_structure, metadata)
 
         existing = collection.get(ids=[f"user_{user_id}"])
-        if existing and existing["documents"]:
+        prev_meta = {}
+        if existing and existing.get("metadatas"):
+            prev_meta = existing["metadatas"][0] or {}
+        if existing and existing.get("documents"):
             preference_text = existing["documents"][0] + "\n\n" + preference_text
 
         collection.upsert(
@@ -92,7 +95,7 @@ class LongTermMemory:
             metadatas=[{
                 "user_id": user_id,
                 "last_updated": time.time(),
-                "total_sessions": (existing.get("metadatas", [{}])[0].get("total_sessions", 0) + 1) if existing else 1,
+                "total_sessions": prev_meta.get("total_sessions", 0) + 1,
                 **(metadata or {}),
             }],
             ids=[f"user_{user_id}"],
